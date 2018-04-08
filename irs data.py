@@ -28,7 +28,7 @@ for year in years:
 years = [2009, 2010, 2011, 2012, 2013, 2014]
 combined = pd.DataFrame()
 for year in years:
-    df = pd.read_csv('E:\WinUser\Documents\Python Code\Zillow Fun\{}zpallnoagi.csv'.format(str(year)[-2:]))
+    df = pd.read_csv('Data/{}zpallnoagi.csv'.format(str(year)[-2:]))
     df.rename(columns = {'N1': 'num R', 'A00100': 'AGI', 'A00200': 'SW', 'A00300': 'TI', 'A00600': 'OD',
                          'A00650': 'QD', 'A00900': 'BPI', 'A01000': 'CG', 'A01400': 'IRAD', 'A01700': 'TPA',
                          'A02500': 'TSSB', 'A03300': 'SRP'}, inplace = True)
@@ -42,6 +42,9 @@ for year in years:
 
 zip_summary = combined[combined['ZIPCODE'] != '00000']
 state_summary = combined[combined['ZIPCODE'] == '00000']
+print(zip_summary.head())
+print(state_summary.head())
+bookmark = input('bookmark')
 
 zip_summary['num R z'] = (zip_summary['num R'] - zip_summary[zip_summary['year'] == max(years)]['num R'].mean()) / zip_summary[zip_summary['year'] == max(years)]['num R'].std()
 zip_summary['avg AGI z'] = (zip_summary['avg AGI'] - zip_summary[zip_summary['year'] == max(years)]['avg AGI'].mean()) / zip_summary[zip_summary['year'] == max(years)]['avg AGI'].std()
