@@ -31,9 +31,14 @@ def get_fed_fund(draw = False):
     if draw:
         f, axarr = plt.subplots(2, sharex = False)
         axarr[0].plot(temp['Fed Rate'])
-        axarr[0].set_title('monthly')
+        axarr[0].set_title('monthly', fontsize = 8)
         axarr[1].plot(temp_annual['Fed Rate'])
-        axarr[1].set_title('annual mean')
+        axarr[1].set_title('annual mean', fontsize = 8)
+        figure_title = 'Fed Funds Rates'
+        plt.text(0.5, 2.42, figure_title,
+                 horizontalalignment = 'center',
+                 fontsize = 14,
+                 transform = axarr[1].transAxes)
         plt.tight_layout()
         plt.show()
     return temp, temp_annual
@@ -46,7 +51,7 @@ def get_mtg_rate(draw = False):
     #'http://www.freddiemac.com/pmms/docs/15yr_pmmsmnth.xls'
     #'http://www.freddiemac.com/pmms/docs/5yr_pmmsmnth.xls'
     
-    link = r'mortgage rates.xlsx'
+    link = 'Data/mortgage_rates.xlsx'
     xls = pd.ExcelFile(link)
     temp = xls.parse(0, header = 0)
     temp['year'].fillna(method = 'ffill', inplace = True)
@@ -61,19 +66,20 @@ def get_mtg_rate(draw = False):
         f, axarr = plt.subplots(2, sharex = False)
         axarr[0].plot(temp[['30 FRM Rate', '15 FRM Rate', '5-1 ARM Rate']])
         axarr[0].legend(['30 FRM Rate', '15 FRM Rate', '5-1 ARM Rate'])
-        axarr[0].set_title('monthly')
+        axarr[0].set_title('monthly', fontsize = 8)
         axarr[1].plot(temp_annual[['30 FRM Rate', '15 FRM Rate', '5-1 ARM Rate']])
         axarr[1].legend(['30 FRM Rate', '15 FRM Rate', '5-1 ARM Rate'])
-        axarr[1].set_title('annual')
+        axarr[1].set_title('annual', fontsize = 8)
+        plt.suptitle('Mortgage Rates')
         plt.tight_layout()
         plt.show()
     return temp, temp_annual
     
 #market movements
 def get_market(draw = False):
-    dow_link = '^DJI.csv'
-    nasdaq_link = '^IXIC.csv'
-    sp500_link = '^GSPC.csv'
+    dow_link = 'Data/^DJI.csv'
+    nasdaq_link = 'Data/^IXIC.csv'
+    sp500_link = 'Data/^GSPC.csv'
 
     dow = pd.read_csv(dow_link).set_index('Date').add_suffix('_d')
     dow.index = pd.to_datetime(dow.index)
@@ -104,6 +110,7 @@ def get_market(draw = False):
         axarr[1].legend(['DOW', 'SP500', 'NASDAQ'])
         axarr[1].set_title('annual')
         plt.tight_layout()
+        plt.suptitle('Market Movements')
         plt.show()
 
     return temp, temp_annual

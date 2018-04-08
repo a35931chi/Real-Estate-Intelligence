@@ -1806,9 +1806,13 @@ if __name__ == '__main__':
     engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
     combined_zhvi = pd.read_sql('select * from combined_zhvi;', engine) #(1318872, 5)
     combined_zri = pd.read_sql('select * from combined_zri;', engine) #(364536, 5)
+    
+    
     combined_med_list_sqft = pd.read_sql('select * from combined_med_list_sqft;', engine) #(98799, 5)
     combined_med_rent_sqft = pd.read_sql('select * from combined_med_rent_sqft;', engine) #(10276, 5)
-
+    print(combined_zhvi.head())
+    bookmark = input('bookmark')
+    
     temp = combined_zhvi[['index', 'Home Type', 'zhvi', 'zip']].merge(combined_zri[['index', 'Home Type', 'zri', 'zip']],
                                                                       how = 'outer',
                                                                       left_on = ['index', 'Home Type', 'zip'],
