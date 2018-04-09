@@ -38,35 +38,42 @@ def zillow_zipcode_pull():
 
     state = 'ny' # we should have a list of states, for now, we'll work with new york state
 
-
-
     #step 1: get all the zip codes in the state. if we have a list of states, we need to loop through the states
-    state_zip_link = 'http://www.zillow.com/webservice/GetRegionChildren.htm?zws-id='+zillow_key[2]+'&state='+state+'&childtype=zipcode'
+    api_approval = None
+    key_index = 0
+    while api_approval != '0':
+        if api_approval == None or key_index == 2:
+            key_index = 0
+        else:
+            key_index += 1
+        state_zip_link = 'http://www.zillow.com/webservice/GetRegionChildren.htm?zws-id='+zillow_key[key_index]+'&state='+state+'&childtype=zipcode'
 
-    state_zip_content = requests.get(state_zip_link).content
-    state_zip_soup = BeautifulSoup(state_zip_content, 'lxml')
+        state_zip_content = requests.get(state_zip_link).content
+        state_zip_soup = BeautifulSoup(state_zip_content, 'lxml')
 
-    approval = state_zip_soup.find_all('code')
+        approval = state_zip_soup.find_all('code')[0].get_text()
+        print('getting approval code: ', approval)
 
-    if approval[0].get_text() == '0':
-        state_zip_ID_bs = state_zip_soup.find_all('id')
-        state_zip_Name_bs = state_zip_soup.find_all('name')
-        state_zip_Lat_bs = state_zip_soup.find_all('latitude')
-        state_zip_Long_bs = state_zip_soup.find_all('longitude')
+    print('got approval')
+    state_zip_ID_bs = state_zip_soup.find_all('id')
+    state_zip_Name_bs = state_zip_soup.find_all('name')
+    state_zip_Lat_bs = state_zip_soup.find_all('latitude')
+    state_zip_Long_bs = state_zip_soup.find_all('longitude')
 
-        state_zip_ID = [i.get_text() for i in state_zip_ID_bs][1:]
-        state_zip_Name = [i.get_text().lower().replace(' ', '+') for i in state_zip_Name_bs]
-        state_zip_Lat = [float(i.get_text()) for i in state_zip_Lat_bs][1:]
-        state_zip_Long = [float(i.get_text()) for i in state_zip_Long_bs][1:]
+    state_zip_ID = [i.get_text() for i in state_zip_ID_bs][1:]
+    state_zip_Name = [i.get_text().lower().replace(' ', '+') for i in state_zip_Name_bs]
+    state_zip_Lat = [float(i.get_text()) for i in state_zip_Lat_bs][1:]
+    state_zip_Long = [float(i.get_text()) for i in state_zip_Long_bs][1:]
 
-        df_state_zip = pd.DataFrame(np.array([state_zip_ID,
-                                              state_zip_Name,
-                                              state_zip_Lat,
-                                              state_zip_Long]).T).rename(columns = {0:'state_zip_ID',
-                                                                                    1:'state_zip_Name',
-                                                                                    2:'state_zip_Lat',
-                                                                                    3:'state_zip_Long'})
-
+    df_state_zip = pd.DataFrame(np.array([state_zip_ID,
+                                          state_zip_Name,
+                                          state_zip_Lat,
+                                          state_zip_Long]).T).rename(columns = {0:'state_zip_ID',
+                                                                                1:'state_zip_Name',
+                                                                                2:'state_zip_Lat',
+                                                                                3:'state_zip_Long'})
+    print(df_state_zip.head())
+    bookmark = input('bookmark')
     '''
     #step 2: get all the counties in the state
     state_county_link = 'http://www.zillow.com/webservice/GetRegionChildren.htm?zws-id='+zillow_key[0]+'&state='+state+'&childtype=county'
