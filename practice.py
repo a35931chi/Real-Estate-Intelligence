@@ -129,25 +129,71 @@ def zillow_zipcode_pull():
                 df_state_city_zip_combined = pd.concat([df_state_city_zip_combined, df_state_city_zip], axis = 0)
             time.sleep(0.75)
             
-    #print(df_state_city_zip_combined.head())
-    #print(df_state_city_zip_combined.shape)
-    #bookmark = input('bookmark') 
     engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
     df_state_city_zip_combined_from_server = pd.read_sql('select * from state_city_zip;', engine)
-    df_state_city_zip_combined_from_server.drop('index', axis = 1, input = True)
-    #print(df_state_city_zip_combined_from_server.head())
-    #print(df_state_city_zip_combined_from_server.shape)
+    df_state_city_zip_combined_from_server.drop('index', axis = 1, inplace = True)
+
+    #seems that the new pulled data have different longitude and latitude
+    #df_state_city_zip_combined_from_server, df_state_city_zip_combined
+    df = df_state_city_zip_combined_from_server.merge(df_state_city_zip_combined, on = 'state_city_zip_ID', how = 'outer',
+                                                      suffixes = ('_o', '_n'))
     
-    #compare the two, and see if they need to be unioned
+    def state_city_zip_Name(row):
+        if str(row['state_city_zip_Name_o']) == 'nan':
+            return row['state_city_zip_Name_n']
+        else:
+            return row['state_city_zip_Name_o']
+
+    def state(row):
+        if str(row['state_o']) == 'nan':
+            return row['state_n']
+        else:
+            return row['state_o']
+
+    def city(row):
+        if str(row['city_o']) == 'nan':
+            return row['city_n']
+        else:
+            return row['city_o']
+
+    def state_city_zip_Lat(row):
+        if str(row['state_city_zip_Lat_n']) == 'nan':
+            return row['state_city_zip_Lat_o']
+        else:
+            return row['state_city_zip_Lat_n']
+
+    def state_city_zip_Long(row):
+        if str(row['state_city_zip_Long_n']) == 'nan':
+            return row['state_city_zip_Long_o']
+        else:
+            return row['state_city_zip_Long_n']
     
-    return df_state_city_zip_combined_from_server, df_state_city_zip_combined
+    
+    df['state_city_zip_Name'] = df.apply(state_city_zip_Name, axis = 1)
+    df['state'] = df.apply(state, axis = 1)
+    df['city'] = df.apply(city, axis = 1)
+    df['state_city_zip_Lat'] = df.apply(state_city_zip_Lat, axis = 1)
+    df['state_city_zip_Long'] = df.apply(state_city_zip_Long, axis = 1)
+
+    df.drop(['state_city_zip_Name_o', 'state_city_zip_Lat_o',
+             'state_city_zip_Long_o', 'state_o', 'city_o',
+             'state_city_zip_Name_n', 'state_city_zip_Lat_n',
+             'state_city_zip_Long_n', 'state_n', 'city_n'],
+            axis = 1, inplace = True)
+    
+    df.to_sql('state_city_zip_v2', engine, if_exists = 'replace', index = True)
+    
+    return df
 
 
-def zillow_init():
+def zillow_init(new = False):
     #start here
     #if disconnected, load from MySQL
     engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
-    df_state_city_zip_combined = pd.read_sql('select * from state_city_zip;', engine)
+    if new == False:
+        df_state_city_zip_combined = pd.read_sql('select * from state_city_zip;', engine)
+    else:
+        df_state_city_zip_combined = pd.read_sql('select * from state_city_zip_v2;', engine)
 
     df_state_city_zip_combined['zhvi_url'] = r'https://www.zillow.com/market-report/time-series/'+df_state_city_zip_combined['state_city_zip_ID']+'/'+df_state_city_zip_combined['city']+'-'+df_state_city_zip_combined['state_city_zip_Name']+'.xls?m=zhvi_plus_forecast'
     df_state_city_zip_combined['med_list_url'] = r'https://www.zillow.com/market-report/time-series/'+df_state_city_zip_combined['state_city_zip_ID']+'/'+df_state_city_zip_combined['city']+'-'+df_state_city_zip_combined['state']+'-'+df_state_city_zip_combined['state_city_zip_Name']+'.xls?m=18'
@@ -161,7 +207,7 @@ def zillow_init():
 def zhvi(df_state_city_zip_combined):
     #zillow home price index portion
     zhvi = pd.DataFrame()
-
+    
     for link in df_state_city_zip_combined['zhvi_url']:
         print(link)
         try:
@@ -187,6 +233,8 @@ def zhvi(df_state_city_zip_combined):
     zhvi_T.drop(['Region Type'], inplace = True, axis = 1)
     print(zhvi_T.shape) #679277, 4)
     zhvi_T['d'] = 2
+    print(zhvi_T.head(20))
+    bookmark = input('bookmark')
 
     #standard code to pull my data
     engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
@@ -331,6 +379,7 @@ def zhvi(df_state_city_zip_combined):
     print(temp1.shape) #(1354255, 4)
 
     temp1.to_sql('combined_zhvi', engine, if_exists = 'replace', index = True)
+    pass
 
 
 def zri(df_state_city_zip_combined):
@@ -498,56 +547,7 @@ def zri(df_state_city_zip_combined):
 
 if __name__ == '__main__':
     #some_df = zillow_init()
-    sql_data, pulled_data = zillow_zipcode_pull()
-    #seems that the new pulled data have different longitude and latitude
-    df = sql_data.merge(pulled_data, on = 'state_city_zip_ID', how = 'outer', suffixes = ('o', 'n'))
-
-
-    df2 = pd.concat([sql_data, pulled_data]).drop_duplicates(keep = False)
-    df1 = sql_data.merge(pulled_data, on = 'state_city_zip_ID', how = 'outer',
-                         suffixes = ('_o', '_n'))
-
-    df1[df1['state_city_zip_Name_o'] == df1['state_city_zip_Name_n']].head()
+    #state_city_zip_data = zillow_zipcode_pull() #only if you want to get new data
+    df_state_city_zip_links = zillow_init(new = True)
+    zhvi(df_state_city_zip_links)
     
-    def state_city_zip_Name(row):
-        if str(row['state_city_zip_Name_o']) == 'nan':
-            return row['state_city_zip_Name_n']
-        else:
-            return row['state_city_zip_Name_o']
-
-    def state(row):
-        if str(row['state_o']) == 'nan':
-            return row['state_n']
-        else:
-            return row['state_o']
-
-    def city(row):
-        if str(row['city_o']) == 'nan':
-            return row['city_n']
-        else:
-            return row['city_o']
-
-    def state_city_zip_Lat(row):
-        if str(row['state_city_zip_Lat_n']) == 'nan':
-            return row['state_city_zip_Lat_o']
-        else:
-            return row['state_city_zip_Lat_n']
-
-    def state_city_zip_Long(row):
-        if str(row['state_city_zip_Long_n']) == 'nan':
-            return row['state_city_zip_Long_o']
-        else:
-            return row['state_city_zip_Long_n']
-    
-    
-    df1['state_city_zip_Name'] = df1.apply(state_city_zip_Name, axis = 1)
-    df1['state'] = df1.apply(state, axis = 1)
-    df1['city'] = df1.apply(city, axis = 1)
-    df1['state_city_zip_Lat'] = df1.apply(state_city_zip_Lat, axis = 1)
-    df1['state_city_zip_Long'] = df1.apply(state_city_zip_Long, axis = 1)
-
-    df1.drop(['state_city_zip_Name_o', 'state_city_zip_Lat_o',
-              'state_city_zip_Long_o', 'state_o', 'city_o',
-              'state_city_zip_Name_n', 'state_city_zip_Lat_n',
-              'state_city_zip_Long_n', 'state_n', 'city_n'],
-             axis = 1, inplace = True)
