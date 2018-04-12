@@ -30,12 +30,11 @@ def zillow_zipcode_pull():
         else:
             key_index += 1
         state_zip_link = 'http://www.zillow.com/webservice/GetRegionChildren.htm?zws-id='+zillow_key[key_index]+'&state='+state+'&childtype=zipcode'
-        print('key_index:', key_index)
         state_zip_content = requests.get(state_zip_link).content
         state_zip_soup = BeautifulSoup(state_zip_content, 'lxml')
 
         api_approval = state_zip_soup.find_all('code')[0].get_text()
-        print('getting approval code: ', api_approval)
+        #print('getting approval code: ', api_approval)
 
     state_zip_ID_bs = state_zip_soup.find_all('id')
     state_zip_Name_bs = state_zip_soup.find_all('name')
@@ -63,12 +62,11 @@ def zillow_zipcode_pull():
         else:
             key_index += 1
         state_city_link = 'http://www.zillow.com/webservice/GetRegionChildren.htm?zws-id='+zillow_key[key_index]+'&state='+state+'&childtype=city'
-        print('key_index:', key_index)
         state_city_content = requests.get(state_city_link).content
         state_city_soup = BeautifulSoup(state_city_content, 'lxml')
 
         api_approval = state_city_soup.find_all('code')[0].get_text()
-        print('getting approval code: ', api_approval)
+        #print('getting approval code: ', api_approval)
 
     state_city_ID_bs = state_city_soup.find_all('id')
     state_city_Name_bs = state_city_soup.find_all('name')
@@ -94,7 +92,6 @@ def zillow_zipcode_pull():
     df_state_city_zip_combined = pd.DataFrame()
     for state in df_state_city['state'].unique():
         for city in df_state_city[df_state_city['state'] == state]['state_city_Name'].unique():
-            print('working on ', city)
             api_approval = None
             while api_approval != '0' and api_approval != '502':
                 if api_approval == None or key_index == 2:
@@ -107,7 +104,7 @@ def zillow_zipcode_pull():
                 state_city_zip_soup = BeautifulSoup(state_city_zip_content, 'lxml')
 
                 api_approval = state_city_zip_soup.find_all('code')[0].get_text()
-                print('getting approval code: ', api_approval)
+                #print('getting approval code: ', api_approval)
                                 
             if api_approval == '0':            
                 state_city_zip_ID_bs = state_city_zip_soup.find_all('id')
@@ -132,65 +129,19 @@ def zillow_zipcode_pull():
                 df_state_city_zip_combined = pd.concat([df_state_city_zip_combined, df_state_city_zip], axis = 0)
             time.sleep(0.75)
             
-    print(df_state_city_zip_combined.head())
-    print(df_state_city_zip_combined.shape)
-    bookmark = input('bookmark') 
+    #print(df_state_city_zip_combined.head())
+    #print(df_state_city_zip_combined.shape)
+    #bookmark = input('bookmark') 
     engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
     df_state_city_zip_combined_from_server = pd.read_sql('select * from state_city_zip;', engine)
-    print(df_state_city_zip_combined_from_server.head())
-    print(df_state_city_zip_combined_from_server.shape)
+    df_state_city_zip_combined_from_server.drop('index', axis = 1, input = True)
+    #print(df_state_city_zip_combined_from_server.head())
+    #print(df_state_city_zip_combined_from_server.shape)
     
-    bookmark = input('bookmark')    
+    #compare the two, and see if they need to be unioned
     
-    '''
-    #Step 4: find all neighborhoods in the state
-    state_neighbor_link = 'http://www.zillow.com/webservice/GetRegionChildren.htm?zws-id='+zillow_key[1]+'&state='+state+'&childtype=neighborhood'
+    return df_state_city_zip_combined_from_server, df_state_city_zip_combined
 
-    state_neighbor_content = requests.get(state_neighbor_link).content
-    state_neighbor_soup = BeautifulSoup(state_neighbor_content, 'lxml')
-
-    approval = state_neighbor_soup.find_all('code')
-
-    if approval[0].get_text() == '0':
-        state_neighbor_ID_bs = state_neighbor_soup.find_all('id')
-        state_neighbor_Name_bs = state_neighbor_soup.find_all('name')
-        state_neighbor_URL_bs = state_neighbor_soup.find_all('url')
-        state_neighbor_Lat_bs = state_neighbor_soup.find_all('latitude')
-        state_neighbor_Long_bs = state_neighbor_soup.find_all('longitude')
-
-        state_neighbor_ID = [i.get_text() for i in state_neighbor_ID_bs][1:]
-        state_neighbor_Name = [i.get_text().lower().replace(' ', '+') for i in state_neighbor_Name_bs]
-        state_neighbor_Lat = [float(i.get_text()) for i in state_neighbor_Lat_bs][1:]
-        state_neighbor_Long = [float(i.get_text()) for i in state_neighbor_Long_bs][1:]
-
-        df_state_neighbor = pd.DataFrame(np.array([state_neighbor_ID,
-                                               state_neighbor_Name,
-                                               state_neighbor_Lat,
-                                               state_neighbor_Long]).T).rename(columns = {0:'state_neighbor_ID',
-                                                                                      1:'state_neighbor_Name',
-                                                                                      2:'state_neighbor_Lat',
-                                                                                      3:'state_neighbor_Long'})
-        df_state_neighbor['state'] = state
-            
-
-    '''
-
-    '''
-    #put things into sql table
-    import pymysql
-    import pymysql.cursors
-    from sqlalchemy import create_engine, MetaData, String, Integer, Table, Column, ForeignKey
-
-    engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
-    df_state_city_zip_combined.to_sql('state_city_zip', engine, if_exists = 'replace', index = True)
-    df_state_city.to_sql('state_city', engine, if_exists = 'replace', index = True)
-
-    df_state_zip.to_sql('state_zip', engine, if_exists = 'replace', index = True)
-    '''
-
-    df_state_city_zip_combined.shape #(1690, 6)
-    df_state_city.shape #(999, 5)
-    df_state_zip.shape #(999, 4)
 
 def zillow_init():
     #start here
@@ -547,4 +498,56 @@ def zri(df_state_city_zip_combined):
 
 if __name__ == '__main__':
     #some_df = zillow_init()
-    zillow_zipcode_pull()
+    sql_data, pulled_data = zillow_zipcode_pull()
+    #seems that the new pulled data have different longitude and latitude
+    df = sql_data.merge(pulled_data, on = 'state_city_zip_ID', how = 'outer', suffixes = ('o', 'n'))
+
+
+    df2 = pd.concat([sql_data, pulled_data]).drop_duplicates(keep = False)
+    df1 = sql_data.merge(pulled_data, on = 'state_city_zip_ID', how = 'outer',
+                         suffixes = ('_o', '_n'))
+
+    df1[df1['state_city_zip_Name_o'] == df1['state_city_zip_Name_n']].head()
+    
+    def state_city_zip_Name(row):
+        if str(row['state_city_zip_Name_o']) == 'nan':
+            return row['state_city_zip_Name_n']
+        else:
+            return row['state_city_zip_Name_o']
+
+    def state(row):
+        if str(row['state_o']) == 'nan':
+            return row['state_n']
+        else:
+            return row['state_o']
+
+    def city(row):
+        if str(row['city_o']) == 'nan':
+            return row['city_n']
+        else:
+            return row['city_o']
+
+    def state_city_zip_Lat(row):
+        if str(row['state_city_zip_Lat_n']) == 'nan':
+            return row['state_city_zip_Lat_o']
+        else:
+            return row['state_city_zip_Lat_n']
+
+    def state_city_zip_Long(row):
+        if str(row['state_city_zip_Long_n']) == 'nan':
+            return row['state_city_zip_Long_o']
+        else:
+            return row['state_city_zip_Long_n']
+    
+    
+    df1['state_city_zip_Name'] = df1.apply(state_city_zip_Name, axis = 1)
+    df1['state'] = df1.apply(state, axis = 1)
+    df1['city'] = df1.apply(city, axis = 1)
+    df1['state_city_zip_Lat'] = df1.apply(state_city_zip_Lat, axis = 1)
+    df1['state_city_zip_Long'] = df1.apply(state_city_zip_Long, axis = 1)
+
+    df1.drop(['state_city_zip_Name_o', 'state_city_zip_Lat_o',
+              'state_city_zip_Long_o', 'state_o', 'city_o',
+              'state_city_zip_Name_n', 'state_city_zip_Lat_n',
+              'state_city_zip_Long_n', 'state_n', 'city_n'],
+             axis = 1, inplace = True)
