@@ -11,6 +11,19 @@ from sqlalchemy import create_engine, MetaData, String, Integer, Table, Column, 
 import quandl
 from itertools import cycle
 
+def quandl_init(key):
+    Quandlkey = ['7ieY8tq_kjzWx2-DiyGx', 'XrVxmKtfg2Fo3FG_NmtC', 'Jh3CAbmwaNP7YoqAN4FK']
+    if key == None:
+        quandl.ApiConfig.api_key = Quandlkey[0]
+        return Quandlkey[0]
+    else:
+        if Quandlkey.index(key) == 2:
+            quandl.ApiConfig.api_key = Quandlkey[0]
+            return Quandlkey[0]
+        else:
+            quandl.ApiConfig.api_key = Quandlkey[Quandlkey.index(key) + 1]
+            return Quandlkey[Quandlkey.index(key) + 1]
+        
 def zillow_zipcode_pull():
     #this method updates the location zip codes only.
     #doesn't need to be run all the time
@@ -233,8 +246,6 @@ def zhvi(df_state_city_zip_combined):
     zhvi_T.drop(['Region Type'], inplace = True, axis = 1)
     print(zhvi_T.shape) #679277, 4)
     zhvi_T['d'] = 2
-    print(zhvi_T.head(20))
-    bookmark = input('bookmark')
 
     #standard code to pull my data
     engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
@@ -326,7 +337,7 @@ def zhvi(df_state_city_zip_combined):
     dups = temp[temp[['Date', 'Home Type', 'zip']].duplicated(keep = False)] #(2039024, 5)
     dups = dups.set_index(['Date', 'Home Type', 'zip', 'd']).unstack(level = -1).reset_index() #(1019512, 5)
     dups['p_diff'] = (dups.xs('zhvi', level=0, axis=1).max(axis = 1) - dups.xs('zhvi', level=0, axis=1).min(axis = 1)) / dups.xs('zhvi', level=0, axis=1).mean(axis = 1)
-    print(dups['p_diff'].max()) #the largest difference is 7%, which is kinda annoying. two observations
+    #print(dups['p_diff'].max()) #the largest difference is 7%, which is kinda annoying. two observations
     
 
     tempa = temp[(~temp[['Date', 'Home Type', 'zip']].duplicated(keep = 'first'))] #(1131345, 5)
@@ -335,15 +346,16 @@ def zhvi(df_state_city_zip_combined):
     #datasource comparision
     #zillow home value index (ZHVI)
     #do some work to compare the two database
-    print(oldz[(oldz['zip'] == '10025') & (oldz['Home Type'] == 'All Homes')].shape) #(120, 4)
-    print(oldq[(oldq['zip'] == '10025') & (oldq['Home Type'] == 'All Homes')].shape) #(139, 4)
-    print(zhvi_T[(zhvi_T['zip'] == '10025') & (zhvi_T['Home Type'] == 'All Homes')].shape) #(120, 4)
-    print(df_quandl_zhvi[(df_quandl_zhvi['zip'] == '10025') & (df_quandl_zhvi['Home Type'] == 'All Homes')].shape) #(157, 4)
+    #print(oldz[(oldz['zip'] == '10025') & (oldz['Home Type'] == 'All Homes')].shape) #(120, 4)
+    #print(oldq[(oldq['zip'] == '10025') & (oldq['Home Type'] == 'All Homes')].shape) #(139, 4)
+    #print(zhvi_T[(zhvi_T['zip'] == '10025') & (zhvi_T['Home Type'] == 'All Homes')].shape) #(120, 4)
+    #print(df_quandl_zhvi[(df_quandl_zhvi['zip'] == '10025') & (df_quandl_zhvi['Home Type'] == 'All Homes')].shape) #(157, 4)
 
-    oldz[(oldz['zip'] == '10025') & (oldz['Home Type'] == 'All Homes')].to_csv('oz.csv', index = False)
-    oldq[(oldq['zip'] == '10025') & (oldq['Home Type'] == 'All Homes')].to_csv('oq.csv', index = False)
-    zhvi_T[(zhvi_T['zip'] == '10025') & (zhvi_T['Home Type'] == 'All Homes')].to_csv('z.csv', index = False)
-    df_quandl_zhvi[(df_quandl_zhvi['zip'] == '10025') & (df_quandl_zhvi['Home Type'] == 'All Homes')].to_csv('q.csv', index = False)
+    #compare output from different database
+    #oldz[(oldz['zip'] == '10025') & (oldz['Home Type'] == 'All Homes')].to_csv('oz.csv', index = False)
+    #oldq[(oldq['zip'] == '10025') & (oldq['Home Type'] == 'All Homes')].to_csv('oq.csv', index = False)
+    #zhvi_T[(zhvi_T['zip'] == '10025') & (zhvi_T['Home Type'] == 'All Homes')].to_csv('z.csv', index = False)
+    #df_quandl_zhvi[(df_quandl_zhvi['zip'] == '10025') & (df_quandl_zhvi['Home Type'] == 'All Homes')].to_csv('q.csv', index = False)
 
     #combine these three tables: 1. oldz oldq, 2. zillow, 3. quandl
     #stack the four tables
@@ -544,10 +556,12 @@ def zri(df_state_city_zip_combined):
     print(temp1.shape) #(369643, 4)
 
     temp1.to_sql('combined_zri', engine, if_exists = 'replace', index = True)
+    pass
 
 if __name__ == '__main__':
     #some_df = zillow_init()
     #state_city_zip_data = zillow_zipcode_pull() #only if you want to get new data
     df_state_city_zip_links = zillow_init(new = True)
+    #zhvi(df_state_city_zip_links)
     zhvi(df_state_city_zip_links)
     
