@@ -141,72 +141,25 @@ def zillow_zipcode_pull():
                 df_state_city_zip['city'] = city
                 df_state_city_zip_combined = pd.concat([df_state_city_zip_combined, df_state_city_zip], axis = 0)
             time.sleep(0.75)
-            
+
     engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
-    df_state_city_zip_combined_from_server = pd.read_sql('select * from state_city_zip;', engine)
-    df_state_city_zip_combined_from_server.drop('index', axis = 1, inplace = True)
-
-    #seems that the new pulled data have different longitude and latitude
-    #df_state_city_zip_combined_from_server, df_state_city_zip_combined
-    df = df_state_city_zip_combined_from_server.merge(df_state_city_zip_combined, on = 'state_city_zip_ID', how = 'outer',
-                                                      suffixes = ('_o', '_n'))
+        
+    old = pd.read_sql('select * from state_city_zip;', engine, index_col = 'index')
+    old.drop_duplicates(subset = ['state_city_zip_Name','state_city_zip_ID'], inplace = True)
+    print('This is our old database shape: '.format(old.shape)) #(1690, 6) as of 2018-04-24
+        
+    new = df_state_city_zip_combined.copy()
+    new.drop_duplicates(subset = ['state_city_zip_Name','state_city_zip_ID'], inplace = True)
+    print('This is our new database shape: '.format(new.shape)) #(1702, 6) as of 2018-04-24
     
-    def state_city_zip_Name(row):
-        if str(row['state_city_zip_Name_o']) == 'nan':
-            return row['state_city_zip_Name_n']
-        else:
-            return row['state_city_zip_Name_o']
-
-    def state(row):
-        if str(row['state_o']) == 'nan':
-            return row['state_n']
-        else:
-            return row['state_o']
-
-    def city(row):
-        if str(row['city_o']) == 'nan':
-            return row['city_n']
-        else:
-            return row['city_o']
-
-    def state_city_zip_Lat(row):
-        if str(row['state_city_zip_Lat_n']) == 'nan':
-            return row['state_city_zip_Lat_o']
-        else:
-            return row['state_city_zip_Lat_n']
-
-    def state_city_zip_Long(row):
-        if str(row['state_city_zip_Long_n']) == 'nan':
-            return row['state_city_zip_Long_o']
-        else:
-            return row['state_city_zip_Long_n']
-    
-    
-    df['state_city_zip_Name'] = df.apply(state_city_zip_Name, axis = 1)
-    df['state'] = df.apply(state, axis = 1)
-    df['city'] = df.apply(city, axis = 1)
-    df['state_city_zip_Lat'] = df.apply(state_city_zip_Lat, axis = 1)
-    df['state_city_zip_Long'] = df.apply(state_city_zip_Long, axis = 1)
-
-    df.drop(['state_city_zip_Name_o', 'state_city_zip_Lat_o',
-             'state_city_zip_Long_o', 'state_o', 'city_o',
-             'state_city_zip_Name_n', 'state_city_zip_Lat_n',
-             'state_city_zip_Long_n', 'state_n', 'city_n'],
-            axis = 1, inplace = True)
-    
-    df.to_sql('state_city_zip_v2', engine, if_exists = 'replace', index = True)
-    
-    return df
+    return old, new
 
 
-def zillow_init(new = False):
+def zillow_init():
     #start here
     #if disconnected, load from MySQL
     engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
-    if new == False:
-        df_state_city_zip_combined = pd.read_sql('select * from state_city_zip;', engine)
-    else:
-        df_state_city_zip_combined = pd.read_sql('select * from state_city_zip_v2;', engine)
+    df_state_city_zip_combined = pd.read_sql('select * from state_city_zip;', engine)
 
     df_state_city_zip_combined['zhvi_url'] = r'https://www.zillow.com/market-report/time-series/'+df_state_city_zip_combined['state_city_zip_ID']+'/'+df_state_city_zip_combined['city']+'-'+df_state_city_zip_combined['state_city_zip_Name']+'.xls?m=zhvi_plus_forecast'
     df_state_city_zip_combined['med_list_url'] = r'https://www.zillow.com/market-report/time-series/'+df_state_city_zip_combined['state_city_zip_ID']+'/'+df_state_city_zip_combined['city']+'-'+df_state_city_zip_combined['state']+'-'+df_state_city_zip_combined['state_city_zip_Name']+'.xls?m=18'
@@ -373,7 +326,6 @@ def zhvi(df_state_city_zip_combined):
 
     tempa = temp[(~temp[['Date', 'Home Type', 'zip']].duplicated(keep = 'first'))].drop('d', axis = 1) #(1262636, 4)
 
-
     #proceed to fill in the data with interpolated values
     temp1 = pd.DataFrame()
 
@@ -389,8 +341,9 @@ def zhvi(df_state_city_zip_combined):
             temp1 = pd.concat([temp1, df])
 
     print(temp1.shape) #(1354255, 4)
-
-    temp1.to_sql('combined_zhvi', engine, if_exists = 'replace', index = True)
+    print(temp1.head())
+    bookmark = input('bookmark')
+    #temp1.to_sql('combined_zhvi', engine, if_exists = 'replace', index = True)
     pass
 
 
@@ -559,9 +512,34 @@ def zri(df_state_city_zip_combined):
     pass
 
 if __name__ == '__main__':
-    #some_df = zillow_init()
-    #state_city_zip_data = zillow_zipcode_pull() #only if you want to get new data
-    df_state_city_zip_links = zillow_init(new = True)
-    #zhvi(df_state_city_zip_links)
-    zhvi(df_state_city_zip_links)
+    #step 1: compare differences between two database
+    if False:
+        old_zips, new_zips = zillow_zipcode_pull()
+
+        merged = old_zips.merge(new_zips, indicator = True, how = 'outer', on = 'state_city_zip_Name')
+
+        print("When comparing old vs. new, here's the overlaping situation: {}".format(set(merged['_merge']))) #{'both', 'right_only'} as of 2018-04-24
+        
+        print('{} data that exists in both old and new tables.'.format(merged[merged._merge == 'both'].shape)) # (1694, 12) as of 2018-04-24
+        print('{} locality ID that differs'.format(merged[(merged._merge == 'both') & (merged.state_city_zip_ID_x != merged.state_city_zip_ID_y)].shape)) #(0, 12) as of 2018-04-24
+        print('{} state that differs'.format(merged[(merged._merge == 'both') & (merged.state_x != merged.state_y)].shape)) #(0, 12)
+        print('{} city that differs'.format(merged[(merged._merge == 'both') & (merged.city_x != merged.city_y)].shape)) #(0, 12)
+        print('{} latitude that differs'.format(merged[(merged._merge == 'both') & (merged.state_city_zip_Lat_x != merged.state_city_zip_Lat_y)].shape)) #(467, 12)
+        print('{} longitude that differs'.format(merged[(merged._merge == 'both') & (merged.state_city_zip_Long_x != merged.state_city_zip_Long_y)].shape)) #(1067, 12)
+
+        print('{} data that exists in only new tables.'.format(merged[merged._merge == 'right_only'].shape)) # (14, 12) as of 2018-04-24
+        print(merged[merged._merge == 'right_only'].head())
+
     
+    #see how you want to update the database, run in IDLE.
+    #option 1: if right table dominates, then take the right table only.
+    #engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
+    #new_zips.to_sql('state_city_zip', engine, if_exists = 'replace', index = False)
+        
+    #option 2: if both info don't overlap, then concat, and dedup
+        
+
+    df_state_city_zip_links = zillow_init()
+    
+    zhvi(df_state_city_zip_links)
+
