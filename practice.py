@@ -167,81 +167,61 @@ def zillow_init():
     df_state_city_zip_combined['zri_url'] = r'https://www.zillow.com/market-report/time-series/'+df_state_city_zip_combined['state_city_zip_ID']+'/'+df_state_city_zip_combined['city']+'-'+df_state_city_zip_combined['state']+'-'+df_state_city_zip_combined['state_city_zip_Name']+'.xls?m=50'
     df_state_city_zip_combined['rental_sqft_url'] = r'https://www.zillow.com/market-report/time-series/'+df_state_city_zip_combined['state_city_zip_ID']+'/'+df_state_city_zip_combined['city']+'-'+df_state_city_zip_combined['state']+'-'+df_state_city_zip_combined['state_city_zip_Name']+'.xls?m=48'
 
-    print(df_state_city_zip_combined.shape) #(1690, 12)
+    print('Current zip file shape: {}'.format(df_state_city_zip_combined.shape))
     return df_state_city_zip_combined
 
 def zhvi(df_state_city_zip_combined):
     #zillow home price index portion
     zhvi = pd.DataFrame()
-    
+    print('Getting data from Zillow API...')
     for link in df_state_city_zip_combined['zhvi_url']:
-        print(link)
+        
         try:
             xls = pd.ExcelFile(link)
+            #print(link)
             for i in range(len(xls.sheet_names)):
                 temp = xls.parse(i, header=1)
                 temp.columns.values[3:] = [datetime.datetime(i.year, i.month, 1) for i in temp.columns.values[3:]]
                 zhvi = pd.concat([zhvi, temp], axis = 0)
         except Exception as e:
+            print(link)
             print(e)
 
-    print(zhvi.shape) #(99408, 123)
-    print(zhvi.duplicated(keep = 'first').sum()) #93587
-    zhvi.drop_duplicates(keep = 'first', inplace = True) 
-    print(zhvi.shape) #(5821, 123)
-    print(zhvi.duplicated(keep = 'first').sum())
+    print('from Zillow API:')
+    print('original shape: {}'.format(zhvi.shape)) #from link (18752, 123) as of 2018-04-25
+    print(zhvi.duplicated(keep = 'first').sum()) #13467
+    #zhvi.drop_duplicates(keep = 'first', inplace = True) 
+    #print(zhvi.shape) #(1103534, 3)
+    #print(zhvi.duplicated(keep = 'first').sum())
 
     #transpose this dataframe
-    zhvi_T = zhvi.set_index(['Data Type','Region Name','Region Type']).stack().reset_index().rename(columns = {'level_3': 'Date', 0: 'zhvi'})
+    zhvi_T = zhvi.set_index(['Data Type', 'Region Name', 'Region Type']).stack().reset_index().rename(columns = {'level_3': 'Date', 0: 'zhvi'})
     zhvi_T['Region Name'] = zhvi_T['Region Name'].apply(lambda x: str(x).zfill(5))
     #we need to drop some columns and rename some columns
-    zhvi_T.rename(columns = {'Data Type':'Home Type', 'Region Name': 'zip'}, inplace = True)
+    zhvi_T.rename(columns = {'Data Type': 'Home Type', 'Region Name': 'zip'}, inplace = True)
     zhvi_T.drop(['Region Type'], inplace = True, axis = 1)
-    print(zhvi_T.shape) #679277, 4)
-    zhvi_T['d'] = 2
-
-    #standard code to pull my data
-    engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
-
-    #zillow home price index portion
-    oldz = pd.read_sql('select * from zillow_zhvi;', engine)
-    oldz['d'] = 4
-    print(oldz.shape) #(623007, 4)
-
-    #stack the zillow tables
-    temp = pd.concat([oldz, zhvi_T], axis = 0) #(1302284, 5)
-
-    #remove the duplicated, let's look at if there are still duplicated columns
-    temp.sort_values(by = ['zip', 'Home Type', 'Date', 'd'], inplace = True)
-    print(temp[['Date', 'Home Type', 'zip']].duplicated(keep = 'first').sum()) #616946
-
-    dups = temp[temp[['Date', 'Home Type', 'zip']].duplicated(keep = False)] #(1233892, 5)
-    dups = dups.set_index(['Date', 'Home Type', 'zip', 'd']).unstack(level = -1).reset_index() #(15264, 4)
-    dups['p_diff'] = (dups.xs('zhvi', level=0, axis=1).max(axis = 1) - dups.xs('zhvi', level=0, axis=1).min(axis = 1)) / dups.xs('zhvi', level=0, axis=1).mean(axis = 1)
-    print(dups['p_diff'].max()) #the largest difference is 3%, which is kinda annoying but acceptable
+    print(zhvi_T.shape) #(632589, 4)
     
 
-    tempa = temp[(~temp[['Date', 'Home Type', 'zip']].duplicated(keep = 'first'))] #(685338, 5)
-    tempa.drop('d', axis = 1).to_sql('zillow_zhvi', engine, if_exists = 'replace', index = False) 
-     
- 
-    quandl_zhvi = {'ZHVIAH': 'All Homes',
-                   'ZHVISAH': 'All Homes',
-                   'ZHVICO': 'Condo',
-                   'ZHVI1B': 'One Bed',
-                   'ZHVI2B': 'Two Bed',
-                   'ZHVI3B': 'Three Bed',
-                   'ZHVI4B': 'Four Bed',
-                   'ZHVI5B': 'Many Bed',
-                   'ZHVISF': 'Single Fam',
-                   'ZHVITT': 'Top Tier',
-                   'ZHVIMT': 'Middle Tier',
-                   'ZHVIBT': 'Bottom Tier'}
     # quandl zhvi
+    quandl_zhvi = {'ZHVIAH': 'All Homes',
+               'ZHVISAH': 'All Homes',
+               'ZHVICO': 'Condo',
+               'ZHVI1B': 'One Bed',
+               'ZHVI2B': 'Two Bed',
+               'ZHVI3B': 'Three Bed',
+               'ZHVI4B': 'Four Bed',
+               'ZHVI5B': 'Many Bed',
+               'ZHVISF': 'Single Fam',
+               'ZHVITT': 'Top Tier',
+               'ZHVIMT': 'Middle Tier',
+               'ZHVIBT': 'Bottom Tier'}
+        
     df_quandl_zhvi = pd.DataFrame()
 
     current_key = quandl_init(None)
-
+    print('Getting data from Quandl API...')
+    print(current_key)
     for zip in df_state_city_zip_combined['state_city_zip_Name']:
         for key in quandl_zhvi.keys():
             link = 'ZILLOW/Z' + zip + '_' + key
@@ -266,15 +246,45 @@ def zhvi(df_state_city_zip_combined):
                     except Exception as o:
                         print(link + 'second error' + str(o))
                 print(link + str(e))
-  
-    print(df_quandl_zhvi.shape) #(1321111, 3)
-    print(df_quandl_zhvi.duplicated(keep = 'first').sum()) #231516
+
+    print(df_quandl_zhvi.shape) #(1417937, 3)
+    print(df_quandl_zhvi.duplicated(keep = 'first').sum()) #278921
     df_quandl_zhvi.drop_duplicates(keep = 'first', inplace = True)
-    print(df_quandl_zhvi.shape) #(1089595, 3)
-    print(df_quandl_zhvi.duplicated(keep = 'first').sum())
+    print(df_quandl_zhvi.shape) #(1139016, 3)
     df_quandl_zhvi.index.name = 'Date'
     df_quandl_zhvi.reset_index(inplace = True)
-    df_quandl_zhvi['d'] = 1
+
+    return zhvi_T, df_quandl_zhvi
+
+def temp():  
+    
+    #standard code to pull my data
+    engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
+
+    #zillow home price index portion
+    oldz = pd.read_sql('select * from zillow_zhvi;', engine)
+    oldz['d'] = 4 #from old stored files
+    print(oldz.shape) #(623007, 4)
+
+    #stack the zillow tables
+    temp = pd.concat([oldz, zhvi_T], axis = 0) #(1302284, 5)
+
+    #remove the duplicated, let's look at if there are still duplicated columns
+    temp.sort_values(by = ['zip', 'Home Type', 'Date', 'd'], inplace = True)
+    print(temp[['Date', 'Home Type', 'zip']].duplicated(keep = 'first').sum()) #616946
+
+    dups = temp[temp[['Date', 'Home Type', 'zip']].duplicated(keep = False)] #(1233892, 5)
+    dups = dups.set_index(['Date', 'Home Type', 'zip', 'd']).unstack(level = -1).reset_index() #(15264, 4)
+    dups['p_diff'] = (dups.xs('zhvi', level=0, axis=1).max(axis = 1) - dups.xs('zhvi', level=0, axis=1).min(axis = 1)) / dups.xs('zhvi', level=0, axis=1).mean(axis = 1)
+    print(dups['p_diff'].max()) #the largest difference is 3%, which is kinda annoying but acceptable
+    
+
+    tempa = temp[(~temp[['Date', 'Home Type', 'zip']].duplicated(keep = 'first'))] #(685338, 5)
+    tempa.drop('d', axis = 1).to_sql('zillow_zhvi', engine, if_exists = 'replace', index = False) 
+     
+ 
+
+    
 
     #quandl home price index portion
     oldq = pd.read_sql('select * from quandl_zhvi;', engine)
@@ -340,7 +350,7 @@ def zhvi(df_state_city_zip_combined):
             df['interp'] = mask
             temp1 = pd.concat([temp1, df])
 
-    print(temp1.shape) #(1354255, 4)
+    print(temp1.shape) #(1705014, 4) as of 2018-04-25
     print(temp1.head())
     bookmark = input('bookmark')
     #temp1.to_sql('combined_zhvi', engine, if_exists = 'replace', index = True)
@@ -541,5 +551,47 @@ if __name__ == '__main__':
 
     df_state_city_zip_links = zillow_init()
     
-    zhvi(df_state_city_zip_links)
 
+    zhvi, quandl_zhvi = zhvi(df_state_city_zip_links)
+
+    engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
+    #zillow home price index portion
+    oldz = pd.read_sql('select * from zillow_zhvi;', engine)
+
+    '''
+
+    #stack the zillow tables
+    temp = pd.concat([oldz, zhvi_T], axis = 0) #(1302284, 5)
+
+    #remove the duplicated, let's look at if there are still duplicated columns
+    temp.sort_values(by = ['zip', 'Home Type', 'Date', 'd'], inplace = True)
+    print(temp[['Date', 'Home Type', 'zip']].duplicated(keep = 'first').sum()) #616946
+
+    dups = temp[temp[['Date', 'Home Type', 'zip']].duplicated(keep = False)] #(1233892, 5)
+    dups = dups.set_index(['Date', 'Home Type', 'zip', 'd']).unstack(level = -1).reset_index() #(15264, 4)
+    dups['p_diff'] = (dups.xs('zhvi', level=0, axis=1).max(axis = 1) - dups.xs('zhvi', level=0, axis=1).min(axis = 1)) / dups.xs('zhvi', level=0, axis=1).mean(axis = 1)
+    print(dups['p_diff'].max()) #the largest difference is 3%, which is kinda annoying but acceptable
+    
+
+    tempa = temp[(~temp[['Date', 'Home Type', 'zip']].duplicated(keep = 'first'))] #(685338, 5)
+    tempa.drop('d', axis = 1).to_sql('zillow_zhvi', engine, if_exists = 'replace', index = False) 
+
+    #proceed to fill in the data with interpolated values
+    temp1 = pd.DataFrame()
+
+    for zipcode in tempa['zip'].unique():
+        for home_type in tempa[tempa['zip'] == zipcode]['Home Type'].unique():
+            print(zipcode, home_type)
+            df = tempa[(tempa['zip'] == zipcode) & (tempa['Home Type'] == home_type)]
+            df.set_index('Date', inplace = True)
+            df = df.reindex(pd.date_range(start = df.index.min(), end = df.index.max(), freq = 'MS'), fill_value = np.nan)
+            mask = df['zip'].isnull()
+            df = df.interpolate(method = 'linear', axis = 0).ffill()
+            df['interp'] = mask
+            temp1 = pd.concat([temp1, df])
+
+    print(temp1.shape) #(1705014, 4) as of 2018-04-25
+    print(temp1.head())
+    bookmark = input('bookmark')
+    #temp1.to_sql('combined_zhvi', engine, if_exists = 'replace', index = True)
+    '''
