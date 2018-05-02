@@ -20,6 +20,7 @@ def quandl_init(key):
 
 #federal funds rate
 def get_fed_fund(draw = False):
+    print('Updated by: Quandl')
     current_key = quandl_init(None)
     temp = quandl.get('FED/RIFSPFF_N_M')
     temp.index = [datetime.datetime(i.year, i.month, 1) for i in temp.index]
@@ -28,6 +29,7 @@ def get_fed_fund(draw = False):
     temp_annual = temp[['year', 'Fed Rate']].groupby(['year'])[['Fed Rate']].mean()
     temp_annual['Fed Rate pchg'] = temp_annual['Fed Rate'].pct_change()
     temp_annual['year_p1'] = temp_annual.index + 1
+    print('date range: {} to {}'.format(temp.index[0], temp.index[-1]))
     if draw:
         f, axarr = plt.subplots(2, sharex = False)
         axarr[0].plot(temp['Fed Rate'])
@@ -41,6 +43,7 @@ def get_fed_fund(draw = False):
                  transform = axarr[1].transAxes)
         plt.tight_layout()
         plt.show()
+    
     return temp, temp_annual
 
 
@@ -50,7 +53,7 @@ def get_mtg_rate(draw = False):
     #'http://www.freddiemac.com/pmms/docs/30yr_pmmsmnth.xls'
     #'http://www.freddiemac.com/pmms/docs/15yr_pmmsmnth.xls'
     #'http://www.freddiemac.com/pmms/docs/5yr_pmmsmnth.xls'
-    
+    print('Updated by: freddiemac')
     link = 'Data/mortgage_rates.xlsx'
     xls = pd.ExcelFile(link)
     temp = xls.parse(0, header = 0)
@@ -62,6 +65,7 @@ def get_mtg_rate(draw = False):
     temp_annual = temp.groupby('year')[['30 FRM Rate', '15 FRM Rate', '5-1 ARM Rate']].mean()
     temp_annual['30 FRM Rate chg'] = temp_annual['30 FRM Rate'].pct_change()
     temp_annual['year_p1'] = temp_annual.index.astype(np.int32) + 1
+    print('date range: {} to {}'.format(temp.index[0], temp.index[-1]))
     if draw:
         f, axarr = plt.subplots(2, sharex = False)
         axarr[0].plot(temp[['30 FRM Rate', '15 FRM Rate', '5-1 ARM Rate']])
@@ -77,6 +81,11 @@ def get_mtg_rate(draw = False):
     
 #market movements
 def get_market(draw = False):
+    #https://query1.finance.yahoo.com/v7/finance/download/%5EDJI?period1=946702800&period2=1525233600&interval=1d&events=history&crumb=KvNPupdi4vA
+    #https://query1.finance.yahoo.com/v7/finance/download/%5EIXIC?period1=946702800&period2=1525233600&interval=1d&events=history&crumb=KvNPupdi4vA
+    #https://query1.finance.yahoo.com/v7/finance/download/%5EGSPC?period1=946702800&period2=1525233600&interval=1d&events=history&crumb=KvNPupdi4vA
+    #to add a day, add 86400 to period2
+    print('Updated by: Yahoo! Finance')
     dow_link = 'Data/^DJI.csv'
     nasdaq_link = 'Data/^IXIC.csv'
     sp500_link = 'Data/^GSPC.csv'
@@ -90,6 +99,7 @@ def get_market(draw = False):
 
     temp = dow.merge(nasdaq, how = 'left', left_index = True, right_index = True).merge(sp500, how = 'left', left_index = True, right_index = True)
     temp['year'] = temp.index.year
+    print('date range: {} to {}'.format(temp.index[0], temp.index[-1]))
     
     temp_annual = (temp[['year', 'Adj Close_d', 'Adj Close_n', 'Adj Close_s']].groupby(['year'])[['Adj Close_d', 'Adj Close_n', 'Adj Close_s']].mean()).merge((temp[['year', 'Adj Close_d', 'Adj Close_n', 'Adj Close_s']].groupby(['year'])[['Adj Close_d', 'Adj Close_n', 'Adj Close_s']].last() / temp[['year', 'Adj Close_d', 'Adj Close_n', 'Adj Close_s']].groupby(['year'])[['Adj Close_d', 'Adj Close_n', 'Adj Close_s']].first() - 1), how = 'left', left_index = True, right_index = True, suffixes = ('_avg', '_pct_chg'))    
     temp_annual.rename(columns = {'Adj Close_d_avg':'DOW avg',
@@ -120,18 +130,26 @@ def get_census():
     #assign all filenames
     #new york state data
     #need to reference these files to fetch locations
-    NY_zipname = 'Data/New_York_State_ZIP_Codes-County_FIPS_Cross-Reference.csv'
+    print('Updated by: American Community Survey (US Census Bureau)')
+    #https://data.ny.gov/Government-Finance/New-York-State-ZIP-Codes-County-FIPS-Cross-Referen/juva-r6g2
+    NY_zipname = 'Data/New_York_State_ZIP_Codes-County_FIPS_Cross-Reference.csv' #November 4, 2015
+    
     US2010_zipname = 'Data/DEC_10_SF1_G001_with_ann_small.csv'
     #census data
     USpop2000name = 'Data/Census_Pop_Data_2000/DEC_00_SF1_H010_with_ann.csv'
     USpop2010name = 'Data/Census_Pop_Data_2010/DEC_10_SF1_H10_with_ann.csv'
 
     #estimate data
+    #go to https://factfinder.census.gov/, advanced search, show me all,
+    #geographies = all 5-digit zip codes (860)
+    #topics = people, basic count/estimate, population total
+    #look for B01003 (Total population)
     USpop2011Ename = 'Data/Census_Pop_Data_2011E/ACS_11_5YR_B01003_with_ann.csv'
     USpop2012Ename = 'Data/Census_Pop_Data_2012E/ACS_12_5YR_B01003_with_ann.csv'
     USpop2013Ename = 'Data/Census_Pop_Data_2013E/ACS_13_5YR_B01003_with_ann.csv'
     USpop2014Ename = 'Data/Census_Pop_Data_2014E/ACS_14_5YR_B01003_with_ann.csv'
     USpop2015Ename = 'Data/Census_Pop_Data_2015E/ACS_15_5YR_B01003_with_ann.csv'
+    USpop2016Ename = 'Data/Census_Pop_Data_2016E/ACS_16_5YR_B01003_with_ann.csv'
 
     #load all data using pandas read_csv
     NY_zip = pd.read_csv(NY_zipname, usecols = ['County Name','ZIP Code'], dtype = {'ZIP Code':str})
@@ -157,6 +175,9 @@ def get_census():
     USpop2015E = pd.read_csv(USpop2015Ename, names = ['tag1', 'zip', 'tag3', '2015', 'error'],
                              usecols = ['zip','2015','error'], skiprows = 2, na_values = '*****',
                              dtype = {'zip': str})
+    USpop2016E = pd.read_csv(USpop2016Ename, names = ['tag1', 'zip', 'tag3', '2016', 'error'],
+                             usecols = ['zip','2016','error'], skiprows = 2, na_values = '*****',
+                             dtype = {'zip': str})
 
     #merge data
     combined = NY_zip.merge(US2010_zip, how = 'left', left_on = 'ZIP Code', right_on = 'zip').drop('zip', 1)
@@ -168,6 +189,7 @@ def get_census():
     combined = combined.merge(USpop2013E, how = 'left', left_on = 'ZIP Code', right_on = 'zip').drop(['zip','error'], 1)
     combined = combined.merge(USpop2014E, how = 'left', left_on = 'ZIP Code', right_on = 'zip').drop(['zip','error'], 1)
     combined = combined.merge(USpop2015E, how = 'left', left_on = 'ZIP Code', right_on = 'zip').drop(['zip','error'], 1)
+    combined = combined.merge(USpop2016E, how = 'left', left_on = 'ZIP Code', right_on = 'zip').drop(['zip','error'], 1)
 
     #combined['p_chg'] = combine['2010'].astype(np.float32)/combine['2000'].astype(np.float32) - 1
     # density (people per km**2)
@@ -178,12 +200,14 @@ def get_census():
     combined['2013_pop_density'] = combined['2013'] / combined['land'] * 1000000
     combined['2014_pop_density'] = combined['2014'] / combined['land'] * 1000000
     combined['2015_pop_density'] = combined['2015'] / combined['land'] * 1000000
+    combined['2016_pop_density'] = combined['2016'] / combined['land'] * 1000000
 
     return combined
 
 def get_irs(draw = False):
     #source:
-    #https://www.irs.gov/statistics/soi-tax-stats-individual-income-tax-statistics-2015-zip-code-data-soi
+    #https://www.irs.gov/statistics/soi-tax-stats-individual-income-tax-statistics-zip-code-data-soi
+    #ex. https://www.irs.gov/statistics/soi-tax-stats-individual-income-tax-statistics-2015-zip-code-data-soi
     #documentation:
     '''
     here's the key to the columns:
@@ -200,6 +224,7 @@ def get_irs(draw = False):
     A02500, TSSB: Taxable Social Security benefits amount
     A03300, SRP: Self-employment retirement plans amount
     '''
+    print('Updated by: IRS')
     years = [2009, 2010, 2011, 2012, 2013, 2014, 2015]
     combined = pd.DataFrame()
     for year in years:
@@ -282,4 +307,4 @@ if __name__ == '__main__':
     #mortgage_rate, mortgage_rate_annual = get_mtg_rate(True)
     #market, market_annual = get_market(True)
     #census_data = get_census()
-    irs_zip_data, irs_state_data = get_irs(True)
+    #irs_zip_data, irs_state_data = get_irs(True)
