@@ -10,6 +10,8 @@ import pymysql.cursors
 from sqlalchemy import create_engine, MetaData, String, Integer, Table, Column, ForeignKey
 import quandl
 from itertools import cycle
+from string import punctuation
+import re
 
 def quandl_init(key):
     Quandlkey = ['7ieY8tq_kjzWx2-DiyGx', 'XrVxmKtfg2Fo3FG_NmtC', 'Jh3CAbmwaNP7YoqAN4FK']
@@ -187,22 +189,6 @@ def zhvi(df_state_city_zip_combined):
             print(link)
             print(e)
 
-    print('from Zillow API:')
-    print('original shape: {}'.format(zhvi.shape)) #from link (18752, 123) as of 2018-04-25
-    #print(zhvi.duplicated(keep = 'first').sum()) #13467
-    #print(zhvi.duplicated(keep = 'first').sum())
-
-    #transpose this dataframe
-    zhvi_T = zhvi.set_index(['Data Type', 'Region Name', 'Region Type']).stack().reset_index().rename(columns = {'level_3': 'Date', 0: 'zhvi'})
-    zhvi_T['Region Name'] = zhvi_T['Region Name'].apply(lambda x: str(x).zfill(5))
-    #we need to drop some columns and rename some columns
-    zhvi_T.rename(columns = {'Data Type': 'Home Type', 'Region Name': 'zip'}, inplace = True)
-    zhvi_T.drop(['Region Type'], inplace = True, axis = 1)
-    print(zhvi_T.shape) #(632589, 4)
-    zhvi_T.drop_duplicates(keep = 'first', inplace = True) #
-    print(zhvi_T.shape) #(1103534, 3)
-    
-
     # quandl zhvi
     quandl_zhvi = {'ZHVIAH': 'All Homes',
                'ZHVISAH': 'All Homes',
@@ -247,10 +233,26 @@ def zhvi(df_state_city_zip_combined):
                         print(link + 'second error' + str(o))
                 print(link + str(e))
 
-    print(df_quandl_zhvi.shape) #(1417937, 3)
-    print(df_quandl_zhvi.duplicated(keep = 'first').sum()) #278921
+    print('from Zillow API:')
+    print('original pre-tranformed shape: {}'.format(zhvi.shape)) #from link (18752, 123) as of 2018-04-25
+    #print(zhvi.duplicated(keep = 'first').sum()) #13467
+    #print(zhvi.duplicated(keep = 'first').sum())
+
+    #transpose this dataframe
+    zhvi_T = zhvi.set_index(['Data Type', 'Region Name', 'Region Type']).stack().reset_index().rename(columns = {'level_3': 'Date', 0: 'zhvi'})
+    zhvi_T['Region Name'] = zhvi_T['Region Name'].apply(lambda x: str(x).zfill(5))
+    #we need to drop some columns and rename some columns
+    zhvi_T.rename(columns = {'Data Type': 'Home Type', 'Region Name': 'zip'}, inplace = True)
+    zhvi_T.drop(['Region Type'], inplace = True, axis = 1)
+    print('original tranformed shape: {}'.format(zhvi_T.shape)) #(632589, 4)
+    zhvi_T.drop_duplicates(keep = 'first', inplace = True) #
+    print('deduped shape: {}'.format(zhvi_T.shape)) #(1103534, 3)
+
+    print('from Quandl API:')
+    print('original shape: {}'.format(df_quandl_zhvi.shape)) #(1417937, 3)
+    #print(df_quandl_zhvi.duplicated(keep = 'first').sum()) #278921
     df_quandl_zhvi.drop_duplicates(keep = 'first', inplace = True)
-    print(df_quandl_zhvi.shape) #(1139016, 3)
+    print('deduped shape: {}'.format(df_quandl_zhvi.shape)) #(1139016, 3)
     df_quandl_zhvi.index.name = 'Date'
     df_quandl_zhvi.reset_index(inplace = True)
 
@@ -273,22 +275,6 @@ def zri(df_state_city_zip_combined):
         except Exception as e:
             print(link)
             print(e)
-
-    print('from Zillow API:')
-    print('original shape: {}'.format(zri.shape)) #shape as of 2018-04-25 (11137, 92)
-    #print(zhvi.duplicated(keep = 'first').sum()) #
-    #print(zhvi.duplicated(keep = 'first').sum())
-
-    #transpose this dataframe
-    zri_T = zri.set_index(['Data Type', 'Region Name', 'Region Type']).stack().reset_index().rename(columns = {'level_3': 'Date', 0: 'zri'})
-    zri_T['Region Name'] = zri_T['Region Name'].apply(lambda x: str(x).zfill(5))
-    #we need to drop some columns and rename some columns
-    zri_T.rename(columns = {'Data Type': 'Home Type', 'Region Name': 'zip'}, inplace = True)
-    zri_T.drop(['Region Type'], inplace = True, axis = 1)
-    print(zri_T.shape) #(954433, 4)
-    zri_T.drop_duplicates(keep = 'first', inplace = True) #
-    print(zri_T.shape) #(224976, 4)
-    
 
     #Zillow Rental Index -
     quandl_zri = {'ZRIAHMF': 'All Homes Multi Fam',
@@ -326,12 +312,31 @@ def zri(df_state_city_zip_combined):
                         print(link + 'second error' + str(o))
                 print(link + str(e))
 
-    print(df_quandl_zri.shape) #
-    print(df_quandl_zri.duplicated(keep = 'first').sum()) #
+
+    print('from Zillow API:')
+    print('original pre-transformed shape: {}'.format(zri.shape)) #shape as of 2018-04-25 original shape: (11137, 92)
+    #print(zhvi.duplicated(keep = 'first').sum()) #
+    #print(zhvi.duplicated(keep = 'first').sum())
+
+    #transpose this dataframe
+    zri_T = zri.set_index(['Data Type', 'Region Name', 'Region Type']).stack().reset_index().rename(columns = {'level_3': 'Date', 0: 'zri'})
+    zri_T['Region Name'] = zri_T['Region Name'].apply(lambda x: str(x).zfill(5))
+    #we need to drop some columns and rename some columns
+    zri_T.rename(columns = {'Data Type': 'Home Type', 'Region Name': 'zip'}, inplace = True)
+    zri_T.drop(['Region Type'], inplace = True, axis = 1)
+    print('original transformed shape: {}'.format(zri_T.shape)) #(954433, 4)
+    zri_T.drop_duplicates(keep = 'first', inplace = True) #
+    print('deduped shape: {}'.format(zri_T.shape)) #deduped shape: (224976, 4)
+    
+
+    print('from Quandl API:')
+    print('original shape: {}'.format(df_quandl_zri.shape)) #original shape: (179477, 3)
+    #print(df_quandl_zri.duplicated(keep = 'first').sum()) #
     df_quandl_zri.drop_duplicates(keep = 'first', inplace = True)
-    print(df_quandl_zri.shape) #(1139016, 3)
+    #print(df_quandl_zri.shape) #(1139016, 3)
     df_quandl_zri.index.name = 'Date'
     df_quandl_zri.reset_index(inplace = True)
+    print('deduped shape: {}'.format(df_quandl_zri.shape)) #deduped shape: (155080, 4)
 
     return zri_T, df_quandl_zri
 
@@ -362,22 +367,24 @@ def zipcode_update():
     pass
 
 def get_zhvi(update = False):
+    engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
+    oldz = pd.read_sql('select * from zillow_zhvi;', engine)
+    #oldz.columns = [re.search(r'\(?([0-9A-Za-z]+)\)?', col).group(1) for col in oldz.columns]
+    oldz.columns = ['Date', 'Home Type', 'zip', 'zhvi']
+    
     if update:
         df_state_city_zip_links = zillow_init()
 
-        zhvi, quandl_zhvi = zhvi(df_state_city_zip_links)
-        #zhvi as of 2018-04-30 (632589, 4)
+        zhvi_zillow, quandl_zhvi = zhvi(df_state_city_zip_links)
+        #zhvi_zillow as of 2018-04-30 (632589, 4)
         #quandl_zhvi as of 2018-04-30 
-
-        engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
-        oldz = pd.read_sql('select * from zillow_zhvi;', engine)
         #oldz as of 2018-04-30 (928125, 4)
 
-        zhvi['source'] = 'Z'
+        zhvi_zillow['source'] = 'Z'
         quandl_zhvi['source'] = 'Q'
         oldz['source'] = 'S'
 
-        temp = pd.concat([oldz, zhvi, quandl_zhvi], axis = 0) #(2699730, 5)
+        temp = pd.concat([oldz, zhvi_zillow, quandl_zhvi], axis = 0) #(2699730, 5)
         temp = temp.set_index(['Date', 'Home Type', 'zip', 'source']).unstack(level = -1).reset_index()
 
         temp['p_diff'] = (temp.xs('zhvi', level = 0, axis = 1).max(axis = 1) - temp.xs('zhvi', level = 0, axis = 1).min(axis = 1)) / temp.xs('zhvi', level = 0, axis = 1).mean(axis = 1)
@@ -430,24 +437,23 @@ def get_zhvi(update = False):
     return temp1
 
 def get_zri(update = False):
+    engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
+    oldz = pd.read_sql('select * from zillow_zri;', engine)
+    #oldz.columns = [re.search(r'\(?([0-9A-Za-z]+)\)?', col).group(1) for col in oldz.columns]
+    
     if update:
         df_state_city_zip_links = zillow_init()
 
-        zri, quandl_zri = zri(df_state_city_zip_links)
-        #zri as of 2018-04-30 (224976, 4)
+        zillow_zri, quandl_zri = zri(df_state_city_zip_links)
+        #zillow_zri as of 2018-04-30 (224976, 4)
         #quandl_zri as of 2018-04-30(155080, 4)
-
-        bookmark = input('bookmark')
-        
-        engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
-        oldz = pd.read_sql('select * from zillow_zri;', engine)
         #oldz as of 2018-04-30 (221395, 4)
 
-        zri['source'] = 'Z'
+        zillow_zri['source'] = 'Z'
         quandl_zri['source'] = 'Q'
         oldz['source'] = 'S'
 
-        temp = pd.concat([oldz, zri, quandl_zri], axis = 0) #(601451, 5)
+        temp = pd.concat([oldz, zillow_zri, quandl_zri], axis = 0) #(601451, 5)
         temp = temp.set_index(['Date', 'Home Type', 'zip', 'source']).unstack(level = -1).reset_index()
 
         temp['p_diff'] = (temp.xs('zri', level = 0, axis = 1).max(axis = 1) - temp.xs('zri', level = 0, axis = 1).min(axis = 1)) / temp.xs('zri', level = 0, axis = 1).mean(axis = 1)
@@ -506,5 +512,10 @@ if __name__ == '__main__':
     #2. get_zhvi(if you want to pull new info, then True)
     #3. get_zri(if you want to pull new info, then True)
 
+    #df = get_zhvi(False) pulls old zhvi data, as of 5/1/2018 (1619288, 4)
+    #df = get_zhvi(True) pulls new zhvi data, tries to update SQL, as of 5/1/2018 (1730873, 4)
 
+    #df = get_zri(False) pulls old zri data, as of 5/1/2018 (221395, 4)
+    #df = get_zri(True) pulls new zri data, tries to update SQL, as of 5/1/2018 (1619288, 4)
+    df = get_zri(True)
 
