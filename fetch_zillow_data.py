@@ -439,7 +439,7 @@ def get_zhvi(update = False):
 def get_zri(update = False):
     engine = create_engine('mysql+pymysql://a35931chi:Maggieyi66@localhost/realestate')
     oldz = pd.read_sql('select * from zillow_zri;', engine)
-    #oldz.columns = [re.search(r'\(?([0-9A-Za-z]+)\)?', col).group(1) for col in oldz.columns]
+    oldz.columns = [re.search(r'\(?([0-9A-Za-z]+)\)?', col).group(1) for col in oldz.columns]
     
     if update:
         df_state_city_zip_links = zillow_init()
@@ -512,10 +512,10 @@ if __name__ == '__main__':
     #2. get_zhvi(if you want to pull new info, then True)
     #3. get_zri(if you want to pull new info, then True)
 
-    #df = get_zhvi(False) pulls old zhvi data, as of 5/1/2018 (1619288, 4)
-    #df = get_zhvi(True) pulls new zhvi data, tries to update SQL, as of 5/1/2018 (1730873, 4)
+    #df = get_zhvi(update = False) pulls old zhvi data, as of 5/1/2018 (1619288, 4)
+    #df = get_zhvi(update = True) pulls new zhvi data, tries to update SQL, as of 5/1/2018 (1730873, 4)
 
-    #df = get_zri(False) pulls old zri data, as of 5/1/2018 (221395, 4)
-    #df = get_zri(True) pulls new zri data, tries to update SQL, as of 5/1/2018 (1619288, 4)
-    df = get_zri(True)
+    #df = get_zri(update = False) pulls old zri data, as of 5/1/2018 (221395, 4)
+    #df = get_zri(update = True) pulls new zri data, tries to update SQL, as of 5/1/2018 (1619288, 4)
+    df = get_zhvi(update = False)
 

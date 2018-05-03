@@ -307,4 +307,4 @@ if __name__ == '__main__':
     #mortgage_rate, mortgage_rate_annual = get_mtg_rate(True)
     #market, market_annual = get_market(True)
     #census_data = get_census()
-    #irs_zip_data, irs_state_data = get_irs(True)
+    irs_zip_data, irs_state_data = get_irs(True)
