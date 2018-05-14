@@ -4,6 +4,8 @@ import pandas as pd
 import datetime
 import matplotlib.pyplot as plt
 
+from sklearn.preprocessing import MinMaxScaler
+
 def quandl_init(key):
     Quandlkey = ['7ieY8tq_kjzWx2-DiyGx', 'XrVxmKtfg2Fo3FG_NmtC', 'Jh3CAbmwaNP7YoqAN4FK']
     if key == None:
@@ -248,6 +250,10 @@ def get_irs(draw = False):
     zip_summary['avg SW z'] = (zip_summary['avg SW'] - zip_summary[zip_summary['year'] == max(years)]['avg SW'].mean()) / zip_summary[zip_summary['year'] == max(years)]['avg SW'].std()
     zip_summary['avg OI z'] = (zip_summary['avg OI'] - zip_summary[zip_summary['year'] == max(years)]['avg OI'].mean()) / zip_summary[zip_summary['year'] == max(years)]['avg OI'].std()
 
+    irs_zip_MMScaler = MinMaxScaler(feature_range = (0.000001, 1))
+    zip_summary[['num R z', 'avg AGI z', 'avg SW z', 'avg OI z']] = irs_zip_MMScaler.fit_transform(zip_summary[['num R z', 'avg AGI z', 'avg SW z', 'avg OI z']])
+    #print(zip_summary.head())
+
     zip_summary.sort_values(by = ['ZIPCODE', 'year'], ascending = True, inplace = True)
     zip_summary['num R pchg'] = zip_summary.groupby('ZIPCODE')['num R'].pct_change()
     zip_summary['avg AGI pchg'] = zip_summary.groupby('ZIPCODE')['avg AGI'].pct_change()
@@ -298,7 +304,7 @@ def get_irs(draw = False):
         draw_df[n_states].plot()
         plt.title('5 States with largest % change in avg AGI')
         plt.show()
-    return zip_summary, state_summary
+    return zip_summary, state_summary, irs_zip_MMScaler
 
 #get zillow data
     
@@ -307,4 +313,4 @@ if __name__ == '__main__':
     #mortgage_rate, mortgage_rate_annual = get_mtg_rate(True)
     #market, market_annual = get_market(True)
     #census_data = get_census()
-    irs_zip_data, irs_state_data = get_irs(True)
+    irs_zip_data, irs_state_data, irs_zip_MMScaler = get_irs(False)
